@@ -1,0 +1,41 @@
+-- tenant.ams_bypass definition
+
+-- Drop table
+
+-- DROP TABLE tenant.ams_bypass;
+
+CREATE TABLE tenant.ams_bypass (
+	id bigserial NOT NULL,
+	ship_id text NOT NULL,
+	interface_id text NULL,
+	json_data text NULL,
+	created_time timestamp NOT NULL,
+	server_created_time timestamp NULL,
+	CONSTRAINT ams_bypass_pkey PRIMARY KEY (id),
+	CONSTRAINT ams_bypass_uq UNIQUE (ship_id, interface_id, created_time)
+)
+WITH (
+	autovacuum_vacuum_scale_factor=0.0,
+	autovacuum_vacuum_threshold=100000
+);
+
+-- Permissions
+
+ALTER TABLE tenant.ams_bypass OWNER TO bypass;
+GRANT ALL ON TABLE tenant.ams_bypass TO bypass;
+
+위의 테이블을 조회해주는 간단한 web 프로그램을 python으로 작성해보자.
+검색 조건은 ship_id는 필수로 입력하게 하고 interface_id는 옵션으로 하면 될것같다.
+interface_id는 양쪽 like문을 걸어 부분만 임력해도 검색되게 해야한다.
+그리고 일자는 from, to 형태로 조회할수 있도록 해야한다.
+출력 내용은 json_data를 파싱해서 테이블 형태로 보여주면 된다.
+예는 아래와 같다.
+{"Gas": {"desc": "Fuel mode active: Gas mode", "unit": "", "value": false}, "SV40": {"desc": "SV40 DO Starting air valve", "unit": "", "value": false}, "SV88": {"desc": "SV88-A DO Main Degassing valve A bank(open=0, close=1)", "unit": "", "value": true}, "Xfer": {"desc": "DO-024 DO Engine under fuel transfer", "unit": "", "value": false}, "Rated": {"desc": "DO-011 DO Enable circuit breaker", "unit": "", "value": true}, "SV451": {"desc": "SV45-1 DO Slow turning valve 1", "unit": "", "value": false}, "Diesel": {"desc": "Fuel mode active: Diesel mode", "unit": "", "value": true}, "MP Pump": {"desc": "DO-043 DO PFO pressure pump start", "unit": "", "value": true}, "$ship_posixmicros": 1761798747183773, "$ship_sensornodeid": "bypass_ECS01_DI"}
+
+ship_posixmicros는 사용자가 쉽게 볼수 있도록 하면된다.
+ship_sensornodeid는 무시한다.
+
+DB접속 정보는 다음과 같다.
+jdbc:postgresql://pg-376fd4.vpc-cdb-kr.ntruss.com:5432/tenant_builder
+id는 bypass
+암호는 qkdlvotm12!@

@@ -1,0 +1,563 @@
+/* AMS Bypass Query Application Styles */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background: #f5f5f5;
+    min-height: 100vh;
+    padding: 0;
+    margin: 0;
+    color: #333;
+}
+
+.container {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    background: white;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 20px;
+    min-height: 100vh;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid #e0e0e0;
+}
+
+header h1 {
+    color: #667eea;
+    font-size: 2.5em;
+    margin-bottom: 10px;
+}
+
+.version {
+    color: #666;
+    font-size: 0.9em;
+}
+
+/* Flash Messages */
+.flash-messages {
+    margin-bottom: 20px;
+}
+
+.flash-message {
+    padding: 12px 20px;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    font-weight: 500;
+}
+
+.flash-error {
+    background-color: #ffebee;
+    color: #c62828;
+    border-left: 4px solid #c62828;
+}
+
+.flash-info {
+    background-color: #e3f2fd;
+    color: #1565c0;
+    border-left: 4px solid #1565c0;
+}
+
+/* Search Section */
+.search-section {
+    background: #f5f5f5;
+    padding: 25px;
+    border-radius: 8px;
+    margin-bottom: 30px;
+}
+
+.search-section h2 {
+    color: #667eea;
+    margin-bottom: 20px;
+    font-size: 1.8em;
+}
+
+.search-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* Inline form layout */
+.search-form-inline {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 15px;
+    align-items: flex-end;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group-inline {
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 auto;
+    min-width: 150px;
+}
+
+.form-group-inline label {
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: #555;
+    font-size: 0.9em;
+}
+
+.form-group-inline input {
+    padding: 10px;
+    border: 2px solid #ddd;
+    border-radius: 6px;
+    font-size: 0.95em;
+    transition: border-color 0.3s;
+    min-width: 150px;
+}
+
+.form-group-inline input:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.form-actions-inline {
+    display: flex;
+    gap: 10px;
+    flex: 0 0 auto;
+    align-items: center;
+    flex-wrap: nowrap;
+}
+
+@media (max-width: 768px) {
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+    
+    .search-form-inline {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .form-group-inline {
+        width: 100%;
+    }
+    
+    .form-group-inline input {
+        min-width: auto;
+        width: 100%;
+    }
+}
+
+.form-group label {
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #555;
+}
+
+.required {
+    color: #c62828;
+}
+
+.optional {
+    color: #666;
+    font-size: 0.9em;
+    font-weight: normal;
+}
+
+.form-group input {
+    padding: 12px;
+    border: 2px solid #ddd;
+    border-radius: 6px;
+    font-size: 1em;
+    transition: border-color 0.3s;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.form-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.btn {
+    padding: 12px 30px;
+    border: none;
+    border-radius: 6px;
+    font-size: 1em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.btn-primary {
+    background: #667eea;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #5568d3;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-secondary {
+    background: #757575;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: #616161;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(117, 117, 117, 0.4);
+}
+
+.btn-realtime {
+    background: #757575;
+    color: white;
+    position: relative;
+}
+
+.btn-realtime:hover {
+    background: #616161;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(117, 117, 117, 0.4);
+}
+
+.btn-realtime.active {
+    background: #4caf50;
+    color: white;
+}
+
+.btn-realtime.active:hover {
+    background: #45a049;
+}
+
+/* RealTime Status */
+.realtime-status {
+    margin-top: 10px;
+    padding: 8px 12px;
+    background: #e8f5e9;
+    border-left: 4px solid #4caf50;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 15px;
+    font-size: 0.9em;
+}
+
+.realtime-badge {
+    font-weight: 600;
+    color: #2e7d32;
+    font-size: 0.95em;
+}
+
+.realtime-last-update {
+    color: #666;
+    font-size: 0.9em;
+}
+
+/* New Row Animation */
+.new-row {
+    animation: fadeInSlide 0.5s ease-in;
+    background: #fff3cd !important;
+}
+
+@keyframes fadeInSlide {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+        background: #fff3cd;
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* RealTime mode table styling */
+.results-section.realtime-mode .excel-table tbody tr:first-child {
+    border-top: 3px solid #4caf50;
+}
+
+/* Results Section */
+.results-section {
+    margin-top: 30px;
+}
+
+.results-section h2 {
+    color: #667eea;
+    margin-bottom: 15px;
+    font-size: 1.8em;
+}
+
+.result-count {
+    color: #666;
+    margin-bottom: 20px;
+    font-size: 1.1em;
+    font-weight: 500;
+}
+
+.table-container {
+    overflow-x: auto;
+    margin-top: 20px;
+    border: 1px solid #d0d0d0;
+    border-radius: 4px;
+    background: white;
+}
+
+/* Excel-style Table */
+.excel-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    font-size: 0.95em;
+}
+
+.excel-table thead {
+    background: #f2f2f2;
+    border-bottom: 2px solid #d0d0d0;
+}
+
+.excel-table th {
+    padding: 10px 12px;
+    text-align: left;
+    font-weight: 600;
+    color: #333;
+    border-right: 1px solid #d0d0d0;
+    white-space: nowrap;
+    background: #f8f8f8;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.excel-table th:last-child {
+    border-right: none;
+}
+
+.excel-table tbody tr {
+    border-bottom: 1px solid #e0e0e0;
+    transition: background-color 0.1s;
+}
+
+.excel-table tbody tr:nth-child(even) {
+    background: #fafafa;
+}
+
+.excel-table tbody tr:hover {
+    background: #f0f7ff !important;
+}
+
+.excel-table tbody tr:last-child {
+    border-bottom: none;
+}
+
+.excel-table td {
+    padding: 8px 12px;
+    color: #333;
+    border-right: 1px solid #e0e0e0;
+    vertical-align: top;
+}
+
+.excel-table td:last-child {
+    border-right: none;
+}
+
+.excel-table tbody td:first-child {
+    font-weight: 500;
+}
+
+.excel-table tbody td:nth-child(2) {
+    font-weight: 600;
+    color: #667eea;
+}
+
+/* Value Styles */
+.value-boolean {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 0.9em;
+}
+
+.value-true {
+    background: #c8e6c9;
+    color: #2e7d32;
+}
+
+.value-false {
+    background: #ffcdd2;
+    color: #c62828;
+}
+
+.value-number {
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+    color: #1976d2;
+}
+
+.value-text {
+    color: #424242;
+}
+
+.no-json-data {
+    color: #666;
+    font-style: italic;
+    text-align: center;
+    padding: 20px;
+}
+
+/* Footer */
+footer {
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid #e0e0e0;
+    text-align: center;
+    color: #666;
+    font-size: 0.9em;
+}
+
+/* Pagination */
+.pagination {
+    margin-top: 20px;
+    padding: 20px;
+    background: #f9f9f9;
+    border-radius: 6px;
+    text-align: center;
+}
+
+.pagination-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+}
+
+.page-info {
+    font-weight: 600;
+    color: #333;
+    font-size: 1em;
+}
+
+.btn-pagination {
+    padding: 10px 20px;
+    border: 2px solid #667eea;
+    border-radius: 6px;
+    background: white;
+    color: #667eea;
+    font-size: 0.95em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.btn-pagination:hover:not(.disabled) {
+    background: #667eea;
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.btn-pagination.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    border-color: #ccc;
+    color: #999;
+}
+
+/* Loading Overlay */
+#loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    backdrop-filter: blur(2px);
+}
+
+.loading-spinner {
+    background: white;
+    padding: 30px 40px;
+    border-radius: 10px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    text-align: center;
+}
+
+.loading-spinner p {
+    margin-top: 20px;
+    color: #666;
+    font-size: 1.1em;
+    font-weight: 500;
+}
+
+.spinner {
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #667eea;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    animation: spin 1s linear infinite;
+    margin: 0 auto;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .container {
+        padding: 20px;
+    }
+
+    header h1 {
+        font-size: 2em;
+    }
+
+    .table-container {
+        overflow-x: scroll;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .excel-table {
+        font-size: 0.85em;
+        min-width: 800px;
+    }
+
+    .excel-table th,
+    .excel-table td {
+        padding: 6px 8px;
+    }
+}
+

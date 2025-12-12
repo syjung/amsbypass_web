@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AMS Bypass Query Application</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📋 AMS Bypass Query Application</h1>
+            <p class="version">Version 1.0.0</p>
+        </header>
+
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash-message flash-{{ category }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <!-- Search Form -->
+        <section class="search-section">
+            <h2>🔍 Search Criteria</h2>
+            <form method="POST" action="{{ url_for('search') }}" class="search-form search-form-inline">
+                <div class="form-group-inline">
+                    <label for="ship_id">Ship ID <span class="required">*</span></label>
+                    <input type="text" 
+                           id="ship_id" 
+                           name="ship_id" 
+                           value="{{ ship_id or '' }}" 
+                           required 
+                           placeholder="Enter ship ID">
+                </div>
+
+                <div class="form-group-inline">
+                    <label for="interface_id">Interface ID <span class="optional">(Optional)</span></label>
+                    <input type="text" 
+                           id="interface_id" 
+                           name="interface_id" 
+                           value="{{ interface_id or '' }}" 
+                           placeholder="Enter interface ID (partial match)">
+                </div>
+
+                <div class="form-group-inline">
+                    <label for="from_date">From Date <span class="optional">(Optional)</span></label>
+                    <input type="date" 
+                           id="from_date" 
+                           name="from_date" 
+                           value="{{ from_date or today_date }}" 
+                           placeholder="YYYY-MM-DD">
+                </div>
+
+                <div class="form-group-inline">
+                    <label for="to_date">To Date <span class="optional">(Optional)</span></label>
+                    <input type="date" 
+                           id="to_date" 
+                           name="to_date" 
+                           value="{{ to_date or today_date }}" 
+                           placeholder="YYYY-MM-DD">
+                </div>
+
+                <div class="form-actions-inline">
+                    <button type="submit" class="btn btn-primary" id="search-btn">
+                        <span id="search-text">🔍 Search</span>
+                        <span id="search-loading" style="display: none;">⏳ Searching...</span>
+                    </button>
+                    <button type="button" class="btn btn-secondary" id="reset-btn" onclick="resetForm()">🔄 Reset</button>
+                    <button type="button" class="btn btn-realtime" id="realtime-btn" onclick="toggleRealtime()">
+                        <span id="realtime-text">⏸️ RealTime</span>
+                    </button>
+                </div>
+            </form>
+            
+            <!-- RealTime Status -->
+            <div id="realtime-status" class="realtime-status" style="display: none;">
+                <span class="realtime-badge">▶️ RealTime ON</span>
+                <span id="realtime-last-update" class="realtime-last-update"></span>
+            </div>
+        </section>
+
+        <!-- Loading Overlay -->
+        <div id="loading-overlay" style="display: none;">
+            <div class="loading-spinner">
+                <div class="spinner"></div>
+                <p>Querying database... Please wait</p>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        {% if table_rows %}
+        <section class="results-section" id="results-section">
+            <h2>📊 Search Results</h2>
+            <p class="result-count" id="result-count">
+                {% set start_row = ((page - 1) * records_per_page) + 1 %}
+                {% set end_row = ((page - 1) * records_per_page) + table_rows|length %}
+                Showing {{ start_row }} - {{ end_row }} of {{ total_count }} row(s) found
+            </p>
+
+            <div class="table-container">
+                <table class="excel-table" id="data-table">
+                    <thead>
+                        <tr>
+                            <th>Ship ID</th>
+                            <th>TagName</th>
+                            <th>Value</th>
+                            <th>Description</th>
+                            <th>Unit</th>
+                            <th>CreatedTime</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        {% for row in table_rows %}
+                        <tr>
+                            <td>{{ row.ship_id }}</td>
+                            <td><strong>{{ row.tag_name }}</strong></td>
+                            <td>
+                                {% set value_type = row.value_type if row.value_type is defined else 'str' %}
+                                {% if value_type == 'bool' %}
+                                    <span class="value-boolean value-{{ 'true' if row.value else 'false' }}">{{ row.value }}</span>
+                                {% elif value_type == 'int' or value_type == 'float' %}
+                                    <span class="value-number">{{ row.value }}</span>
+                                {% else %}
+                                    <span class="value-text">{{ row.value }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ row.description }}</td>
+                            <td>{{ row.unit }}</td>
+                            <td>{{ row.posix_micros }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if total_pages > 1 %}
+            <div class="pagination">
+                <form method="GET" action="{{ url_for('search') }}" id="pagination-form">
+                    <input type="hidden" name="ship_id" value="{{ ship_id }}">
+                    {% if interface_id %}
+                    <input type="hidden" name="interface_id" value="{{ interface_id }}">
+                    {% endif %}
+                    {% if from_date %}
+                    <input type="hidden" name="from_date" value="{{ from_date }}">
+                    {% endif %}
+                    {% if to_date %}
+                    <input type="hidden" name="to_date" value="{{ to_date }}">
+                    {% endif %}
+                    
+                    <div class="pagination-controls">
+                        {% if page > 1 %}
+                        <button type="submit" name="page" value="{{ page - 1 }}" class="btn-pagination">◀ Previous</button>
+                        {% else %}
+                        <button type="button" class="btn-pagination disabled" disabled>◀ Previous</button>
+                        {% endif %}
+                        
+                        <span class="page-info">Page {{ page }} of {{ total_pages }}</span>
+                        
+                        {% if page < total_pages %}
+                        <button type="submit" name="page" value="{{ page + 1 }}" class="btn-pagination">Next ▶</button>
+                        {% else %}
+                        <button type="button" class="btn-pagination disabled" disabled>Next ▶</button>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+            {% endif %}
+        </section>
+        {% endif %}
+
+        <footer>
+            <p>© 2025 AMS Bypass Query Application</p>
+        </footer>
+    </div>
+
+    <script>
+        // RealTime variables
+        let realtimeMode = false;
+        let pollInterval = null;
+        let lastTimestamp = null;
+        const MAX_ROWS = 500; // Maximum rows to display in realtime mode
+        const POLL_INTERVAL = 5000; // 5 seconds
+
+        // Set today's date as default if not already set
+        window.onload = function() {
+            const today = new Date().toISOString().split('T')[0];
+            const fromDate = document.getElementById('from_date');
+            const toDate = document.getElementById('to_date');
+            
+            if (!fromDate.value) {
+                fromDate.value = today;
+            }
+            if (!toDate.value) {
+                toDate.value = today;
+            }
+        };
+
+        function resetForm() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('ship_id').value = '';
+            document.getElementById('interface_id').value = '';
+            document.getElementById('from_date').value = today;
+            document.getElementById('to_date').value = today;
+            
+            // Stop realtime if active
+            if (realtimeMode) {
+                stopRealtime();
+            }
+        }
+
+        // RealTime functions
+        function toggleRealtime() {
+            if (realtimeMode) {
+                stopRealtime();
+            } else {
+                startRealtime();
+            }
+        }
+
+        function startRealtime() {
+            const shipId = document.getElementById('ship_id').value.trim();
+            if (!shipId) {
+                alert('Please enter Ship ID first');
+                return;
+            }
+
+            realtimeMode = true;
+            const realtimeBtn = document.getElementById('realtime-btn');
+            const realtimeText = document.getElementById('realtime-text');
+            const realtimeStatus = document.getElementById('realtime-status');
+            const searchForm = document.querySelector('.search-form-inline');
+            const pagination = document.querySelector('.pagination');
+            const tableBody = document.getElementById('table-body');
+            const resultsSection = document.getElementById('results-section');
+            const resultCount = document.getElementById('result-count');
+
+            // Clear existing table rows
+            if (tableBody) {
+                tableBody.innerHTML = '';
+            }
+
+            // Hide results section initially if it exists
+            if (resultsSection) {
+                resultsSection.style.display = 'block';
+            }
+
+            // Update result count
+            if (resultCount) {
+                resultCount.textContent = 'RealTime Mode: Waiting for new data...';
+            }
+
+            // Update UI
+            realtimeBtn.classList.add('active');
+            realtimeText.textContent = '▶️ RealTime ON';
+            realtimeStatus.style.display = 'inline-flex';
+            
+            // Disable search form inputs (but keep RealTime button clickable)
+            const formInputs = searchForm.querySelectorAll('input, button[type="submit"], button#reset-btn');
+            formInputs.forEach(input => {
+                input.disabled = true;
+                input.style.opacity = '0.6';
+                input.style.cursor = 'not-allowed';
+            });
+            
+            // Ensure RealTime button remains clickable
+            realtimeBtn.style.pointerEvents = 'auto';
+            realtimeBtn.style.opacity = '1';
+            realtimeBtn.disabled = false;
+            
+            // Hide pagination
+            if (pagination) {
+                pagination.style.display = 'none';
+            }
+
+            // Initialize last timestamp (current time - so we only get future data)
+            const now = new Date();
+            lastTimestamp = now.toISOString().replace('T', ' ').substring(0, 19);
+
+            // Start polling immediately
+            pollRealtimeData();
+            pollInterval = setInterval(pollRealtimeData, POLL_INTERVAL);
+        }
+
+        function stopRealtime() {
+            realtimeMode = false;
+            const realtimeBtn = document.getElementById('realtime-btn');
+            const realtimeText = document.getElementById('realtime-text');
+            const realtimeStatus = document.getElementById('realtime-status');
+            const searchForm = document.querySelector('.search-form-inline');
+            const pagination = document.querySelector('.pagination');
+
+            // Clear interval
+            if (pollInterval) {
+                clearInterval(pollInterval);
+                pollInterval = null;
+            }
+
+            // Update UI
+            realtimeBtn.classList.remove('active');
+            realtimeText.textContent = '⏸️ RealTime';
+            realtimeStatus.style.display = 'none';
+            
+            // Enable search form inputs
+            const formInputs = searchForm.querySelectorAll('input, button[type="submit"], button#reset-btn');
+            formInputs.forEach(input => {
+                input.disabled = false;
+                input.style.opacity = '1';
+                input.style.cursor = '';
+            });
+            
+            // Reset RealTime button style
+            realtimeBtn.style.pointerEvents = '';
+            realtimeBtn.style.opacity = '';
+            
+            // Show pagination
+            if (pagination) {
+                pagination.style.display = 'block';
+            }
+
+            lastTimestamp = null;
+        }
+
+        async function pollRealtimeData() {
+            if (!realtimeMode) return;
+
+            const shipId = document.getElementById('ship_id').value.trim();
+            const interfaceId = document.getElementById('interface_id').value.trim();
+            
+            if (!shipId) {
+                stopRealtime();
+                return;
+            }
+
+            try {
+                // Build query string
+                let queryParams = `ship_id=${encodeURIComponent(shipId)}`;
+                if (interfaceId) {
+                    queryParams += `&interface_id=${encodeURIComponent(interfaceId)}`;
+                }
+                if (lastTimestamp) {
+                    queryParams += `&last_timestamp=${encodeURIComponent(lastTimestamp)}`;
+                }
+
+                // Fetch new data
+                const response = await fetch(`/api/realtime?${queryParams}`);
+                const data = await response.json();
+
+                if (!data.success) {
+                    console.error('Realtime API error:', data.error);
+                    return;
+                }
+
+                // Update table with new rows
+                if (data.new_rows && data.new_rows.length > 0) {
+                    updateTableWithNewRows(data.new_rows);
+                    updateLastUpdateTime();
+                    
+                    // Update last timestamp
+                    if (data.last_timestamp) {
+                        lastTimestamp = data.last_timestamp;
+                    }
+                }
+            } catch (error) {
+                console.error('Error polling realtime data:', error);
+            }
+        }
+
+        function updateTableWithNewRows(newRows) {
+            const tbody = document.getElementById('table-body');
+            if (!tbody) {
+                // Create tbody if it doesn't exist (for realtime mode)
+                const table = document.getElementById('data-table');
+                if (table) {
+                    const newTbody = document.createElement('tbody');
+                    newTbody.id = 'table-body';
+                    table.appendChild(newTbody);
+                    return updateTableWithNewRows(newRows); // Retry with new tbody
+                }
+                return;
+            }
+
+            // Ensure results section is visible
+            const resultsSection = document.getElementById('results-section');
+            if (resultsSection && newRows.length > 0) {
+                resultsSection.style.display = 'block';
+            }
+
+            // Create rows for new data
+            newRows.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.className = 'new-row'; // For animation
+
+                // Format value based on type
+                let valueHtml = '';
+                const valueType = row.value_type || 'str';
+                if (valueType === 'bool') {
+                    const boolClass = row.value ? 'true' : 'false';
+                    valueHtml = `<span class="value-boolean value-${boolClass}">${row.value}</span>`;
+                } else if (valueType === 'int' || valueType === 'float') {
+                    valueHtml = `<span class="value-number">${row.value}</span>`;
+                } else {
+                    valueHtml = `<span class="value-text">${row.value}</span>`;
+                }
+
+                tr.innerHTML = `
+                    <td>${escapeHtml(row.ship_id || '')}</td>
+                    <td><strong>${escapeHtml(row.tag_name || '')}</strong></td>
+                    <td>${valueHtml}</td>
+                    <td>${escapeHtml(row.description || '')}</td>
+                    <td>${escapeHtml(row.unit || '')}</td>
+                    <td>${escapeHtml(row.posix_micros || '')}</td>
+                `;
+
+                // Insert at the beginning (top of table)
+                tbody.insertBefore(tr, tbody.firstChild);
+
+                // Remove animation class after animation
+                setTimeout(() => {
+                    tr.classList.remove('new-row');
+                }, 1000);
+            });
+
+            // Limit maximum rows
+            const allRows = tbody.querySelectorAll('tr');
+            if (allRows.length > MAX_ROWS) {
+                for (let i = MAX_ROWS; i < allRows.length; i++) {
+                    allRows[i].remove();
+                }
+            }
+
+            // Update result count
+            const currentRowCount = tbody.querySelectorAll('tr').length;
+            updateResultCount(currentRowCount);
+        }
+
+        // Helper function to escape HTML
+        function escapeHtml(text) {
+            if (text === null || text === undefined) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function updateResultCount(count) {
+            const resultCount = document.getElementById('result-count');
+            if (resultCount) {
+                if (realtimeMode) {
+                    resultCount.textContent = `Total: ${count} row(s) (RealTime Mode)`;
+                } else {
+                    // Keep original count if not in realtime mode
+                    // This function is mainly for realtime mode
+                }
+            }
+        }
+
+        function updateLastUpdateTime() {
+            const lastUpdateEl = document.getElementById('realtime-last-update');
+            if (lastUpdateEl) {
+                const now = new Date();
+                lastUpdateEl.textContent = `Last update: ${now.toLocaleTimeString()}`;
+            }
+        }
+
+        // Show loading indicator when form is submitted
+        document.querySelector('.search-form-inline').addEventListener('submit', function(e) {
+            // Stop realtime if active
+            if (realtimeMode) {
+                stopRealtime();
+            }
+
+            const loadingOverlay = document.getElementById('loading-overlay');
+            const searchBtn = document.getElementById('search-btn');
+            const searchText = document.getElementById('search-text');
+            const searchLoading = document.getElementById('search-loading');
+            
+            // Show loading overlay
+            loadingOverlay.style.display = 'flex';
+            
+            // Update button text
+            searchText.style.display = 'none';
+            searchLoading.style.display = 'inline';
+            searchBtn.disabled = true;
+            
+            // Prevent form resubmission
+            searchBtn.style.pointerEvents = 'none';
+        });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', function() {
+            if (realtimeMode && pollInterval) {
+                clearInterval(pollInterval);
+            }
+        });
+    </script>
+</body>
+</html>
+
