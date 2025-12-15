@@ -14,7 +14,7 @@ class Config:
     # Database connection information - update these values as needed
     DB_HOST = 'pg-376fd4.vpc-cdb-kr.ntruss.com'
     DB_PORT = 5432
-    DB_NAME = 'tenant_builder'
+    DB_NAME = 'tenant_builder_dev'
     DB_USER = 'bypass'
     DB_PASSWORD = 'qkdlvotm12!@'
     DB_SCHEMA = 'tenant'

@@ -77,23 +77,24 @@ def parse_json_data(json_data_text: str) -> List[Dict[str, Any]]:
 
 def convert_timestamp(posix_micros: int) -> str:
     """
-    Convert POSIX microseconds to readable datetime string
+    Convert POSIX microseconds to readable datetime string in UTC
     
     Args:
         posix_micros: Unix timestamp in microseconds
     
     Returns:
-        Formatted datetime string
+        Formatted datetime string in UTC
     """
     try:
         # Convert microseconds to seconds
         timestamp_seconds = posix_micros / 1_000_000
         
-        # Create datetime object
-        dt = datetime.fromtimestamp(timestamp_seconds)
+        # Create datetime object in UTC
+        from datetime import timezone
+        dt = datetime.fromtimestamp(timestamp_seconds, tz=timezone.utc)
         
-        # Format as string
-        formatted = dt.strftime('%Y-%m-%d %H:%M:%S.%f')
+        # Format as string (UTC)
+        formatted = dt.strftime('%Y-%m-%d %H:%M:%S.%f UTC')
         
         return formatted
     except (ValueError, TypeError, OSError) as e:

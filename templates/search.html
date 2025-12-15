@@ -8,11 +8,6 @@
 </head>
 <body>
     <div class="container">
-        <header>
-            <h1>📋 AMS Bypass Query Application</h1>
-            <p class="version">Version 1.0.0</p>
-        </header>
-
         <!-- Flash Messages -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
@@ -41,30 +36,32 @@
                 </div>
 
                 <div class="form-group-inline">
-                    <label for="interface_id">Interface ID <span class="optional">(Optional)</span></label>
-                    <input type="text" 
-                           id="interface_id" 
-                           name="interface_id" 
-                           value="{{ interface_id or '' }}" 
-                           placeholder="Enter interface ID (partial match)">
-                </div>
-
-                <div class="form-group-inline">
                     <label for="from_date">From Date <span class="optional">(Optional)</span></label>
-                    <input type="date" 
+                    <input type="datetime-local" 
                            id="from_date" 
                            name="from_date" 
-                           value="{{ from_date or today_date }}" 
-                           placeholder="YYYY-MM-DD">
+                           value="{{ from_date or '' }}" 
+                           placeholder="YYYY-MM-DDTHH:MM">
                 </div>
 
                 <div class="form-group-inline">
                     <label for="to_date">To Date <span class="optional">(Optional)</span></label>
-                    <input type="date" 
+                    <input type="datetime-local" 
                            id="to_date" 
                            name="to_date" 
-                           value="{{ to_date or today_date }}" 
-                           placeholder="YYYY-MM-DD">
+                           value="{{ to_date or '' }}" 
+                           placeholder="YYYY-MM-DDTHH:MM">
+                </div>
+
+                <div class="form-group-inline">
+                    <label for="refresh_interval">Refresh Interval (sec) <span class="optional">(Optional)</span></label>
+                    <input type="number" 
+                           id="refresh_interval" 
+                           name="refresh_interval" 
+                           value="{{ refresh_interval or '5' }}" 
+                           min="1" 
+                           max="300" 
+                           placeholder="5">
                 </div>
 
                 <div class="form-actions-inline">
@@ -113,7 +110,7 @@
                             <th>Value</th>
                             <th>Description</th>
                             <th>Unit</th>
-                            <th>CreatedTime</th>
+                            <th>CreatedTime (UTC)</th>
                         </tr>
                     </thead>
                     <tbody id="table-body">
@@ -145,14 +142,14 @@
             <div class="pagination">
                 <form method="GET" action="{{ url_for('search') }}" id="pagination-form">
                     <input type="hidden" name="ship_id" value="{{ ship_id }}">
-                    {% if interface_id %}
-                    <input type="hidden" name="interface_id" value="{{ interface_id }}">
-                    {% endif %}
                     {% if from_date %}
                     <input type="hidden" name="from_date" value="{{ from_date }}">
                     {% endif %}
                     {% if to_date %}
                     <input type="hidden" name="to_date" value="{{ to_date }}">
+                    {% endif %}
+                    {% if refresh_interval %}
+                    <input type="hidden" name="refresh_interval" value="{{ refresh_interval }}">
                     {% endif %}
                     
                     <div class="pagination-controls">
@@ -187,11 +184,20 @@
         let pollInterval = null;
         let lastTimestamp = null;
         const MAX_ROWS = 500; // Maximum rows to display in realtime mode
-        const POLL_INTERVAL = 5000; // 5 seconds
+        let POLL_INTERVAL = 5000; // Default 5 seconds
 
-        // Set today's date as default if not already set
+        // Set today's date/time as default if not already set
         window.onload = function() {
-            const today = new Date().toISOString().split('T')[0];
+            const now = new Date();
+            // Format as datetime-local (YYYY-MM-DDTHH:MM) in local time
+            // Convert UTC to local for display
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const today = `${year}-${month}-${day}T${hours}:${minutes}`;
+            
             const fromDate = document.getElementById('from_date');
             const toDate = document.getElementById('to_date');
             
@@ -204,11 +210,19 @@
         };
 
         function resetForm() {
-            const today = new Date().toISOString().split('T')[0];
+            const now = new Date();
+            // Format as datetime-local in local time
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const today = `${year}-${month}-${day}T${hours}:${minutes}`;
+            
             document.getElementById('ship_id').value = '';
-            document.getElementById('interface_id').value = '';
             document.getElementById('from_date').value = today;
             document.getElementById('to_date').value = today;
+            document.getElementById('refresh_interval').value = '5';
             
             // Stop realtime if active
             if (realtimeMode) {
@@ -232,6 +246,11 @@
                 return;
             }
 
+            // Get refresh interval from input
+            const refreshIntervalInput = document.getElementById('refresh_interval');
+            const intervalSeconds = parseInt(refreshIntervalInput.value) || 5;
+            POLL_INTERVAL = intervalSeconds * 1000; // Convert to milliseconds
+
             realtimeMode = true;
             const realtimeBtn = document.getElementById('realtime-btn');
             const realtimeText = document.getElementById('realtime-text');
@@ -242,19 +261,56 @@
             const resultsSection = document.getElementById('results-section');
             const resultCount = document.getElementById('result-count');
 
-            // Clear existing table rows
-            if (tableBody) {
-                tableBody.innerHTML = '';
-            }
-
-            // Hide results section initially if it exists
-            if (resultsSection) {
+            // Create results section and table if they don't exist (for direct RealTime without Search)
+            if (!resultsSection) {
+                // Find the container
+                const container = document.querySelector('.container');
+                if (container) {
+                    // Create results section
+                    const newResultsSection = document.createElement('section');
+                    newResultsSection.className = 'results-section';
+                    newResultsSection.id = 'results-section';
+                    newResultsSection.innerHTML = `
+                        <h2>📊 Search Results</h2>
+                        <p class="result-count" id="result-count">RealTime Mode: Waiting for new data...</p>
+                        <div class="table-container">
+                            <table class="excel-table" id="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Ship ID</th>
+                                        <th>TagName</th>
+                                        <th>Value</th>
+                                        <th>Description</th>
+                                        <th>Unit</th>
+                                        <th>CreatedTime (UTC)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table-body"></tbody>
+                            </table>
+                        </div>
+                    `;
+                    // Insert before footer
+                    const footer = document.querySelector('footer');
+                    if (footer) {
+                        container.insertBefore(newResultsSection, footer);
+                    } else {
+                        container.appendChild(newResultsSection);
+                    }
+                }
+            } else {
+                // Clear existing table rows if table exists
+                const tableBodyEl = document.getElementById('table-body');
+                if (tableBodyEl) {
+                    tableBodyEl.innerHTML = '';
+                }
+                // Show results section if it exists
                 resultsSection.style.display = 'block';
             }
 
             // Update result count
-            if (resultCount) {
-                resultCount.textContent = 'RealTime Mode: Waiting for new data...';
+            const resultCountEl = document.getElementById('result-count');
+            if (resultCountEl) {
+                resultCountEl.textContent = 'RealTime Mode: Waiting for new data...';
             }
 
             // Update UI
@@ -280,9 +336,17 @@
                 pagination.style.display = 'none';
             }
 
-            // Initialize last timestamp (current time - so we only get future data)
+            // Initialize last timestamp (1 minute ago in local timezone - to get recent data)
             const now = new Date();
-            lastTimestamp = now.toISOString().replace('T', ' ').substring(0, 19);
+            const oneMinuteAgo = new Date(now.getTime() - 60 * 1000); // 1 minute ago
+            // Use local time
+            const year = oneMinuteAgo.getFullYear();
+            const month = String(oneMinuteAgo.getMonth() + 1).padStart(2, '0');
+            const day = String(oneMinuteAgo.getDate()).padStart(2, '0');
+            const hours = String(oneMinuteAgo.getHours()).padStart(2, '0');
+            const minutes = String(oneMinuteAgo.getMinutes()).padStart(2, '0');
+            const seconds = String(oneMinuteAgo.getSeconds()).padStart(2, '0');
+            lastTimestamp = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 
             // Start polling immediately
             pollRealtimeData();
@@ -332,7 +396,6 @@
             if (!realtimeMode) return;
 
             const shipId = document.getElementById('ship_id').value.trim();
-            const interfaceId = document.getElementById('interface_id').value.trim();
             
             if (!shipId) {
                 stopRealtime();
@@ -342,9 +405,6 @@
             try {
                 // Build query string
                 let queryParams = `ship_id=${encodeURIComponent(shipId)}`;
-                if (interfaceId) {
-                    queryParams += `&interface_id=${encodeURIComponent(interfaceId)}`;
-                }
                 if (lastTimestamp) {
                     queryParams += `&last_timestamp=${encodeURIComponent(lastTimestamp)}`;
                 }
@@ -358,22 +418,79 @@
                     return;
                 }
 
+                // Clear previous highlights before adding new rows
+                const tbody = document.getElementById('table-body');
+                if (tbody) {
+                    const allRows = tbody.querySelectorAll('tr.new-row-highlight');
+                    allRows.forEach(row => {
+                        row.classList.remove('new-row-highlight');
+                    });
+                }
+
+                // Always update last update time
+                updateLastUpdateTime();
+                
+                // Get count of new rows added in this refresh
+                const newRowsCount = data.new_rows ? data.new_rows.length : 0;
+                
                 // Update table with new rows
-                if (data.new_rows && data.new_rows.length > 0) {
-                    updateTableWithNewRows(data.new_rows);
-                    updateLastUpdateTime();
+                if (newRowsCount > 0) {
+                    updateTableWithNewRows(data.new_rows, newRowsCount);
                     
-                    // Update last timestamp
+                    // Update last timestamp (convert UTC to local time for next query)
                     if (data.last_timestamp) {
-                        lastTimestamp = data.last_timestamp;
+                        // data.last_timestamp is in UTC format 'YYYY-MM-DD HH:MM:SS'
+                        // Convert to local time for next query
+                        try {
+                            // Parse UTC timestamp: 'YYYY-MM-DD HH:MM:SS' -> Date object
+                            // Replace space with 'T' and add 'Z' for UTC
+                            const utcString = data.last_timestamp.replace(' ', 'T') + 'Z';
+                            const utcDate = new Date(utcString);
+                            
+                            // Convert to local time
+                            const year = utcDate.getFullYear();
+                            const month = String(utcDate.getMonth() + 1).padStart(2, '0');
+                            const day = String(utcDate.getDate()).padStart(2, '0');
+                            const hours = String(utcDate.getHours()).padStart(2, '0');
+                            const minutes = String(utcDate.getMinutes()).padStart(2, '0');
+                            const seconds = String(utcDate.getSeconds()).padStart(2, '0');
+                            lastTimestamp = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+                            
+                            console.log(`Updated lastTimestamp: UTC ${data.last_timestamp} -> Local ${lastTimestamp}`);
+                        } catch (e) {
+                            console.error('Error converting last_timestamp:', e);
+                            // If conversion fails, use as-is
+                            lastTimestamp = data.last_timestamp;
+                        }
                     }
+                } else {
+                    // No new data, but keep the last_timestamp from server (don't update to current time)
+                    // This ensures we don't skip data if there's a delay
+                    if (data.last_timestamp) {
+                        try {
+                            // Parse UTC timestamp and convert to local time
+                            const utcString = data.last_timestamp.replace(' ', 'T') + 'Z';
+                            const utcDate = new Date(utcString);
+                            const year = utcDate.getFullYear();
+                            const month = String(utcDate.getMonth() + 1).padStart(2, '0');
+                            const day = String(utcDate.getDate()).padStart(2, '0');
+                            const hours = String(utcDate.getHours()).padStart(2, '0');
+                            const minutes = String(utcDate.getMinutes()).padStart(2, '0');
+                            const seconds = String(utcDate.getSeconds()).padStart(2, '0');
+                            lastTimestamp = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+                        } catch (e) {
+                            console.error('Error converting last_timestamp:', e);
+                        }
+                    }
+                    // Update result count even when no new rows
+                    updateResultCount(0, 0);
                 }
             } catch (error) {
                 console.error('Error polling realtime data:', error);
             }
         }
 
-        function updateTableWithNewRows(newRows) {
+        function updateTableWithNewRows(newRows, newRowsCount) {
             const tbody = document.getElementById('table-body');
             if (!tbody) {
                 // Create tbody if it doesn't exist (for realtime mode)
@@ -382,7 +499,7 @@
                     const newTbody = document.createElement('tbody');
                     newTbody.id = 'table-body';
                     table.appendChild(newTbody);
-                    return updateTableWithNewRows(newRows); // Retry with new tbody
+                    return updateTableWithNewRows(newRows, newRowsCount); // Retry with new tbody
                 }
                 return;
             }
@@ -393,10 +510,13 @@
                 resultsSection.style.display = 'block';
             }
 
-            // Create rows for new data
-            newRows.forEach(row => {
+            // Create rows for new data with staggered animation
+            newRows.forEach((row, index) => {
                 const tr = document.createElement('tr');
-                tr.className = 'new-row'; // For animation
+                tr.className = 'new-row new-row-highlight'; // For animation and persistent highlight
+                
+                // Add staggered delay for multiple rows
+                tr.style.animationDelay = `${index * 0.05}s`;
 
                 // Format value based on type
                 let valueHtml = '';
@@ -422,10 +542,11 @@
                 // Insert at the beginning (top of table)
                 tbody.insertBefore(tr, tbody.firstChild);
 
-                // Remove animation class after animation
+                // Remove animation class after animation completes, but keep highlight until next refresh
                 setTimeout(() => {
                     tr.classList.remove('new-row');
-                }, 1000);
+                    tr.style.animationDelay = ''; // Clear delay
+                }, 1500); // Match animation duration (1.5s)
             });
 
             // Limit maximum rows
@@ -436,9 +557,9 @@
                 }
             }
 
-            // Update result count
+            // Update result count with total and new rows count
             const currentRowCount = tbody.querySelectorAll('tr').length;
-            updateResultCount(currentRowCount);
+            updateResultCount(currentRowCount, newRowsCount);
         }
 
         // Helper function to escape HTML
@@ -449,11 +570,15 @@
             return div.innerHTML;
         }
 
-        function updateResultCount(count) {
+        function updateResultCount(totalCount, newRowsCount) {
             const resultCount = document.getElementById('result-count');
             if (resultCount) {
                 if (realtimeMode) {
-                    resultCount.textContent = `Total: ${count} row(s) (RealTime Mode)`;
+                    if (newRowsCount > 0) {
+                        resultCount.innerHTML = `Total: <strong>${totalCount}</strong> row(s) | <span style="color: #ff9800; font-weight: bold;">+${newRowsCount} new</span> (RealTime Mode)`;
+                    } else {
+                        resultCount.textContent = `Total: ${totalCount} row(s) | +0 new (RealTime Mode)`;
+                    }
                 } else {
                     // Keep original count if not in realtime mode
                     // This function is mainly for realtime mode
@@ -465,7 +590,9 @@
             const lastUpdateEl = document.getElementById('realtime-last-update');
             if (lastUpdateEl) {
                 const now = new Date();
-                lastUpdateEl.textContent = `Last update: ${now.toLocaleTimeString()}`;
+                // Display in UTC
+                const utcTime = now.toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
+                lastUpdateEl.textContent = `Last update: ${utcTime}`;
             }
         }
 
@@ -475,6 +602,8 @@
             if (realtimeMode) {
                 stopRealtime();
             }
+
+            // Use datetime-local values as-is (no timezone conversion)
 
             const loadingOverlay = document.getElementById('loading-overlay');
             const searchBtn = document.getElementById('search-btn');

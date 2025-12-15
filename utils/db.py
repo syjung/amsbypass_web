@@ -224,12 +224,28 @@ def execute_query(ship_id, interface_id=None, from_date=None, to_date=None, limi
         params.append(f'%{interface_id}%')
     
     if from_date:
-        query += " AND created_time >= %s"
-        params.append(from_date)
+        # Handle both datetime-local format (YYYY-MM-DDTHH:MM) and date format (YYYY-MM-DD)
+        if 'T' in from_date:
+            # datetime-local format: convert YYYY-MM-DDTHH:MM to YYYY-MM-DD HH:MM:00
+            datetime_str = from_date.replace('T', ' ') + ':00'
+            query += " AND created_time >= %s::timestamp"
+            params.append(datetime_str)
+        else:
+            # date format
+            query += " AND created_time >= %s"
+            params.append(from_date)
     
     if to_date:
-        query += " AND created_time <= %s::date + INTERVAL '1 day' - INTERVAL '1 second'"
-        params.append(to_date)
+        # Handle both datetime-local format (YYYY-MM-DDTHH:MM) and date format (YYYY-MM-DD)
+        if 'T' in to_date:
+            # datetime-local format: convert YYYY-MM-DDTHH:MM to YYYY-MM-DD HH:MM:59
+            datetime_str = to_date.replace('T', ' ') + ':59'
+            query += " AND created_time <= %s::timestamp"
+            params.append(datetime_str)
+        else:
+            # date format
+            query += " AND created_time <= %s::date + INTERVAL '1 day' - INTERVAL '1 second'"
+            params.append(to_date)
     
     query += " ORDER BY created_time DESC LIMIT %s OFFSET %s"
     params.extend([limit, offset])
@@ -272,12 +288,24 @@ def count_query(ship_id, interface_id=None, from_date=None, to_date=None):
         params.append(f'%{interface_id}%')
     
     if from_date:
-        query += " AND created_time >= %s"
-        params.append(from_date)
+        # from_date is already in UTC (converted in app.py)
+        if 'T' in from_date:
+            datetime_str = from_date.replace('T', ' ') + ':00'
+            query += " AND created_time >= %s::timestamp"
+            params.append(datetime_str)
+        else:
+            query += " AND created_time >= %s::date"
+            params.append(from_date)
     
     if to_date:
-        query += " AND created_time <= %s::date + INTERVAL '1 day' - INTERVAL '1 second'"
-        params.append(to_date)
+        # to_date is already in UTC (converted in app.py)
+        if 'T' in to_date:
+            datetime_str = to_date.replace('T', ' ') + ':59'
+            query += " AND created_time <= %s::timestamp"
+            params.append(datetime_str)
+        else:
+            query += " AND created_time <= %s::date + INTERVAL '1 day' - INTERVAL '1 second'"
+            params.append(to_date)
     
     try:
         with get_db_connection() as conn:
